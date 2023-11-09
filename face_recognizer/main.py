@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 import time
 import face_recognition
+import trio
 
 from collections import Counter
 from PIL import Image, ImageDraw
@@ -41,6 +42,14 @@ command2 = 'cd /home/unitree/Unitree/sdk/faceLightSDK_Nano && ./bin/faceLightOff
 command3 = 'cd /home/unitree/Unitree/sdk/faceLightSDK_Nano && ./bin/faceLightRed'
 command_yellow = 'cd /home/unitree/Unitree/sdk/faceLightSDK_Nano && ./bin/faceLightYellow'
 command_talk = 'cd /home/unitree/Unitree/sdk/UnitreecameraSDK-main/face_recognizer && python3 audio.py --source '
+
+async def run_talk(cmd):
+	result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+async def run_light(cmd):
+	result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	await trio.sleep(2)
+	result = subprocess.run(command2, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 def _recognize_face(unknown_encoding, loaded_encodings):
     boolean_matches = face_recognition.compare_faces(
@@ -139,26 +148,24 @@ def recognize_faces(
 		if confidence > 80:
 			guesses.append(name)
 			if len(guesses) == 1:
-				result = subprocess.run(command_talk+"first.wav", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				trio.run(run_talk,command_talk+"first.wav")
+				
 			elif len(guesses) == 2:
-				result = subprocess.run(command_talk+"second.wav", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+				trio.run(run_talk,command_talk+"second.wav")
 			elif len(guesses) == 3:
 				pass
 			print(guesses)
 		if not name:
 			name = "Unknown"
 		elif name == "Caleb" and confidence > 80:
-			result = subprocess.run(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			time.sleep(3)
-			result = subprocess.run(command2, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			#trio.run(run_light,command)
 
 			pillowImage = Image.fromarray(input_image)
 			if showImage == True:
 				pillowImage.show()
 		elif name == "Endian" and confidence > 80:
-			result = subprocess.run(command3, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-			time.sleep(3)
-			result = subprocess.run(command2, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			#trio.run(run_light,command3)
+			pass
 
 	    # Removed print(name, bounding_box)
 		#_display_face(draw, bounding_box, name)
@@ -237,7 +244,4 @@ while True:
 	print("Sending response: "+detectedPerson)
 	client_socket.send(response.encode('utf-8'))
 
-	result = subprocess.run(command_yellow, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	time.sleep(3)
-	result = subprocess.run(command2, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
+	trio.run(run_light,command_yellow)
