@@ -1,4 +1,4 @@
-# Inside NX board on ~/Desktop/NodeJS-Test
+// Inside NX board on ~/Desktop/NodeJS-Test
 
 const { Go1, Go1Mode} = require("@droneblocks/go1-js");
 
