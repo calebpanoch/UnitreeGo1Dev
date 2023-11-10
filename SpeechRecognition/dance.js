@@ -8,7 +8,7 @@ dog.init();
               
 async function dance() {
 
-  await dog.wait(3000);
+  //await dog.wait(3000);
 
   dog.setMode(Go1Mode.stand);
 
@@ -27,11 +27,12 @@ async function dance() {
   await dog.lookDown(1, 1000);
   await dog.leanLeft(1, 1000);
   await dog.leanRight(1, 1000);
-
+  await dog.lookUp(0.5, 1000);
+  
   await dog.resetBody();
 
   dog.setMode(Go1Mode.walk);
-
+  await dog.wait(1000);
   console.log("done");
 
 }
