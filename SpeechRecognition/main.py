@@ -5,6 +5,11 @@ from ctypes import *
 import pyaudio
 import subprocess
 import threading
+import time
+
+# Lock for synchronization
+global_variable_lock = threading.Lock()
+
 
 command = 'sh dance.sh'
 
@@ -27,6 +32,8 @@ asound.snd_lib_error_set_handler(c_error_handler)
 r = sr.Recognizer()
 m = sr.Microphone()
 
+lock = threading.Lock()
+
 def recognize_audio(audio):
     print("a")
     try:
@@ -34,9 +41,17 @@ def recognize_audio(audio):
         value = r.recognize_google(audio)
 
         print("You said {}".format(value))
+
         if value == "hey robot dance" or value == "play robot dance" or value == "a robot dance":
-            print("Gonna dance now!")
-            process = subprocess.Popen(command, shell=True)
+            lock_acquired = global_variable_lock.acquire(blocking = False)
+            if lock_acquired:
+                print("DANCING!")
+                process = subprocess.Popen(command, shell=True)
+                time.sleep(20)
+                print("DONE DANCING!")
+                global_variable_lock.release()
+            else:
+                print("ALREADY DANCING!!")
     except sr.UnknownValueError:
         print("Oops! Didn't catch that")
     except sr.RequestError as e:
