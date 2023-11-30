@@ -1,5 +1,3 @@
-# This script is to encode incoming appointment faces from the website.
-
 from pathlib import Path
 import face_recognition
 
@@ -15,6 +13,27 @@ import cv2
 import numpy as np
 
 UP_SAMPLE = 3
+
+
+
+from PIL import Image
+
+def resize_image(input_path, output_path, max_size=(800, 600)):
+    try:
+        with Image.open(input_path) as img:
+            # Check if the image size exceeds the maximum size
+            if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
+                img.thumbnail(max_size)
+                img.save(output_path)
+                print(f"Image resized and saved to {output_path}")
+            else:
+                print("Image is already within the specified size")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+
 
 
 
@@ -81,7 +100,7 @@ def encode_known_faces(
             face_encodings = face_recognition.face_encodings(res, face_locations)
             print("Done.")
             if not show_output:
-                show_output = True
+                #show_output = True
                 out = cv2.hconcat([img, res])
                 cv2.imshow('Output', out)
                 cv2.waitKey(0)
@@ -91,7 +110,7 @@ def encode_known_faces(
 
 
             name_encodings = {"names": names, "encodings": encodings}
-            with encodings_location.open(mode="wb") as f:
+            with encodings_location.open(mode="ab") as f:
                 pickle.dump(name_encodings, f)
             #IPython.display.clear_output()
         except Exception as e:
@@ -100,79 +119,49 @@ def encode_known_faces(
 
 import socket
 import os
+import requests
+import time
+import photoAPI
 
-def start_server(host, port):
-    # Create a socket object
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def check_appointments():
 
-    # Bind the socket to a specific address and port
-    server_socket.bind((host, port))
-
-    # Listen for incoming connections
-    server_socket.listen(5)
-    print(f"Server listening on {host}:{port}")
-
-    while True:
-        # Wait for a connection from a client
-        print("Waiting for new connection...")
-        client_socket, client_address = server_socket.accept()
-        print(f"Connection from {client_address}")
-
-        # Receive string data from the client
-        client_name = client_socket.recv(1024).decode('utf-8')
-        print(f"Received string data: {client_name}")
-
+    for photo in photoAPI.get_photo_list('http://10.12.42.22:3000/photos'):
+        client_name = photo['filename'][:-4]
         try:
-        # Create a directory with the received string as its name
+        
+            # Create a directory with the received string as its name
             folder_path = os.path.join(os.getcwd(), "new_appointment_faces", client_name)
             os.makedirs(folder_path, exist_ok=False)
         except:
             response = "User (folder) already exists!"
-            client_socket.send(response.encode('utf-8'))
-            client_socket.close()
             continue
 
-        # Add a debug print statement
-        print("Waiting to receive image data...")
-        client_socket.settimeout(2)  # Set a timeout of 10 seconds
-        # Receive image data from the client
-        image_data = b""
         try:
-            while True:
-                chunk = client_socket.recv(1024)
-                if not chunk:
-                    print("Received no more data from the client.")
-                    break
-                image_data += chunk
-
-        except socket.timeout:
-            print("Timeout: No data received within the specified timeout.")
-
-
-        # Add a debug print statement
-        print("Image data received successfully.")
-
-        # Save the received image to a file inside the directory
-        image_filename = os.path.join(folder_path, client_name+".jpg")
-        with open(image_filename, "wb") as image_file:
-            image_file.write(image_data)
-            print(f"Image received and saved as {image_filename}")
+            # Send an HTTP GET request to the URL
+            response = requests.get(photo['url'])
+            # Check if the request was successful
+            if response.status_code == 200:
+                # Check if the response content is not empty
+                if response.content:
+                    file_path = os.path.join(folder_path, client_name+".jpg")
+                    with open(file_path, 'wb') as f:
+                        f.write(response.content)
+                    resize_image(file_path, file_path)
+                else:
+                    print("The response content is empty. The image may not be available.")
+                    return False
+            else:
+                print(f"Failed to fetch the image. Status code: {response.status_code}")
+                return False
+        except:
+            print("Error saving image")
 
 	# Encode face
         encode_known_faces(path=client_name)
 
-        # Send a response back to the client
-        response = f"Successfully encoded {client_name}."
-        client_socket.send(response.encode('utf-8'))
-
-        # Close the connection with the client
-        client_socket.close()
 
 if __name__ == "__main__":
-    # Specify the host and port for the server
-    host = "0.0.0.0"  # Use "0.0.0.0" to accept connections from any IP
-    port = 4418
-
     # Start the server
-    start_server(host, port)
-
+    while True:
+        check_appointments()
+        time.sleep(5)
